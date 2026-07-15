@@ -1,46 +1,47 @@
 from dotenv import load_dotenv
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.messages import SystemMessage , HumanMessage , AIMessage
-
-
+from google.cloud import firestore
+from langchain_google_firestore import FirestoreChatMessageHistory
 from langchain_ollama import ChatOllama
 
-import streamlit as st
-
-
-
-# Load environment variables from .env
+# Load environment configuration variables 
 load_dotenv()
 
-ollama1model = ChatOllama(model="qwen3:8b", temperature=0,)    # local model 
-ollama2model = ChatOllama(model="gemma4:latest", temperature=0,)  # local model
+# Setup Firebase Firestore parameters
+PROJECT_ID = "langchain-series"   # <-- Replace with your actual project ID string
+SESSION_ID = "user_session_2"  
+COLLECTION_NAME = "chat_history"
 
+# Initialize Firestore Client connections
+print("Initializing Firestore Client...")
+client = firestore.Client(project=PROJECT_ID)
 
-chat_history = []  # Initialize chat history
+# Initialize persistent Firestore Chat Message History backend
+print("Initializing Firestore Chat Message History...")
+chat_history = FirestoreChatMessageHistory(
+    session_id=SESSION_ID,
+    collection=COLLECTION_NAME,
+    client=client,
+)
+print("Chat History Initialized.")
+print("Current Chat History:", chat_history.messages)
 
-system_message = SystemMessage(content="You are a helpful AI assistant.")
-chat_history.append(system_message) # Add system message to chat history
+# Initialize your local Ollama Chat Model instance pipeline
+model = ChatOllama(model="gemma4:latest", temperature=0)
 
-# Chat loop
+print("\nStart chatting with the AI. Type 'exit' to quit.")
+
 while True:
-    query = input("You: ")
-    if query.lower() == "exit":
+    human_input = input("\nUser: ")
+    if human_input.lower() == "exit":
         break
-    chat_history.append(HumanMessage(content=query)) # Add user message
+
+    # Commit user input straight into Cloud storage logs
+    chat_history.add_user_message(human_input)
+
+    # Process prompt using complete chat records context
+    ai_response = model.invoke(chat_history.messages)
     
-    # Get AI response using history
-    result = ollama2model.invoke(chat_history)
-    response = result.content
-    chat_history.append(AIMessage(content=response)) # Add AI message
-    
-    print(f"AI: {response}")
-    
-    
+    # Save the AI response text directly back into Firestore
+    chat_history.add_ai_message(ai_response.content)
 
-print("---- Message History ----")
-print(chat_history)
-
-
-
-
+    print(f"AI: {ai_response.content}")
