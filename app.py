@@ -1,70 +1,46 @@
 from dotenv import load_dotenv
-
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import SystemMessage , HumanMessage , AIMessage
 
 
 from langchain_ollama import ChatOllama
 
 import streamlit as st
 
-# Load .env
+
+
+# Load environment variables from .env
 load_dotenv()
 
-# ----------------------------
-# Prompt Template
-# ----------------------------
+ollama1model = ChatOllama(model="qwen3:8b", temperature=0,)    # local model 
+ollama2model = ChatOllama(model="gemma4:latest", temperature=0,)  # local model
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are a helpful assistant. Answer the user's question clearly."
-        ),
-        (
-            "user",
-            "Question: {question}"
-        )
-    ]
-)
 
-# ----------------------------
-# Ollama Model
-# ----------------------------
+chat_history = []  # Initialize chat history
 
-llm = ChatOllama(
-    model="qwen3:8b",
-    temperature=0
-)
-# ----------------------------
-# Output Parser
-# ----------------------------
+system_message = SystemMessage(content="You are a helpful AI assistant.")
+chat_history.append(system_message) # Add system message to chat history
 
-output_parser = StrOutputParser()
+# Chat loop
+while True:
+    query = input("You: ")
+    if query.lower() == "exit":
+        break
+    chat_history.append(HumanMessage(content=query)) # Add user message
+    
+    # Get AI response using history
+    result = ollama2model.invoke(chat_history)
+    response = result.content
+    chat_history.append(AIMessage(content=response)) # Add AI message
+    
+    print(f"AI: {response}")
+    
+    
 
-# ----------------------------
-# Chain
-# ----------------------------
+print("---- Message History ----")
+print(chat_history)
 
-chain = prompt | llm | output_parser
 
-# ----------------------------
-# Streamlit UI
-# ----------------------------
 
-st.markdown("Powered by Qwen3-8B via Ollama")
 
-input_text = st.text_input(
-    "Ask a question"
-)
-
-if input_text:
-    response = chain.invoke(
-        {
-            "question": input_text
-        }
-    )
-
-    st.write(response)
-
-print("prasanna")
